@@ -1,0 +1,32 @@
+# Secrets / local config
+.env
+.env.*.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Generated / runtime artifacts (rebuildable via `python -m src.ingest` / eval runs)
+data/index.npz
+evals/last_run.jsonl
+
+# Editor / OS / tooling cruft
+.vscode/
+.idea/
+.DS_Store
+.claude/
+
+# Personal dev notes / scratch (not meant for the public repo)
+NOTES.md
+*.local.md
+TODO.md
+*.zip

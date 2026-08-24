@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: telco-agent
+    static_configs:
+      # The Python app runs on your host machine, exposing :8000/metrics.
+      # host.docker.internal lets the Prometheus container reach the host.
+      # If you change METRICS_PORT, update the port here too.
+      - targets: ["host.docker.internal:8000"]
