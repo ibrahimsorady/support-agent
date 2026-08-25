@@ -14,13 +14,19 @@ from openai import OpenAI
 
 from src.config import EMBED_MODEL, INDEX_PATH, TOP_K, VECTOR_BACKEND
 
-client = OpenAI()
-
+_client: OpenAI | None = None
 _data = None  # lazy-loaded numpy index cache
 
 
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI()
+    return _client
+
+
 def _embed_query(text):
-    resp = client.embeddings.create(model=EMBED_MODEL, input=[text])
+    resp = _get_client().embeddings.create(model=EMBED_MODEL, input=[text])
     from src import metrics  # lazy import to avoid a hard dependency cycle
     metrics.record_embed_usage(EMBED_MODEL, getattr(resp, "usage", None))
     return np.array(resp.data[0].embedding, dtype=np.float32)

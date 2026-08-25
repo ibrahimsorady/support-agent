@@ -27,7 +27,7 @@ from openai import OpenAI
 from src.agent import answer
 from src.config import JUDGE_MODEL
 
-client = OpenAI()
+_client: OpenAI | None = None
 EVALS_DIR = Path(__file__).resolve().parent
 CASES_PATH = EVALS_DIR / "cases.yaml"
 RESULTS_PATH = EVALS_DIR / "last_run.jsonl"
@@ -75,11 +75,18 @@ def build_judge_prompt(question, reply, rubric):
     )
 
 
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI()
+    return _client
+
+
 def llm_judge(question, reply, rubric):
     """Returns (passed, short_detail, extra) where extra holds the full prompt
     and raw reply so you can see exactly how the judge decided."""
     prompt = build_judge_prompt(question, reply, rubric)
-    resp = client.responses.create(
+    resp = _get_client().responses.create(
         model=JUDGE_MODEL,
         instructions="You are a strict but fair grader. Judge only against the rubric.",
         input=prompt,

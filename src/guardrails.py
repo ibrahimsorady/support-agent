@@ -18,7 +18,14 @@ from openai import OpenAI
 
 from src.config import ENABLE_GROUNDING_GUARD, JUDGE_MODEL
 
-client = OpenAI()
+_client: OpenAI | None = None
+
+
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI()
+    return _client
 
 SAFE_INPUT_REFUSAL = (
     "I can only help with account and support questions. "
@@ -76,7 +83,7 @@ def _is_grounded(reply, evidence):
         "Is every factual claim in the answer supported by the evidence? "
         "Reply YES or NO as the first word."
     )
-    resp = client.responses.create(
+    resp = _get_client().responses.create(
         model=JUDGE_MODEL,
         instructions="You are a strict grounding checker. Judge only against the evidence.",
         input=prompt,

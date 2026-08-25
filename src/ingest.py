@@ -13,7 +13,14 @@ from openai import OpenAI
 
 from src.config import CHUNK_MAX_CHARS, EMBED_MODEL, INDEX_PATH, KB_DIR, VECTOR_BACKEND
 
-client = OpenAI()
+_client: OpenAI | None = None
+
+
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI()
+    return _client
 
 
 def load_chunks():
@@ -36,7 +43,7 @@ def load_chunks():
 
 def embed(texts):
     """Embed a list of strings in a single batched API call."""
-    resp = client.embeddings.create(model=EMBED_MODEL, input=texts)
+    resp = _get_client().embeddings.create(model=EMBED_MODEL, input=texts)
     return np.array([d.embedding for d in resp.data], dtype=np.float32)
 
 

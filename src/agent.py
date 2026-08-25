@@ -18,7 +18,14 @@ from src.guardrails import check_input, check_output
 from src.retriever import retrieve
 from src.tools import TOOL_SCHEMAS, run_tool
 
-client = OpenAI()
+_client: OpenAI | None = None
+
+
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI()
+    return _client
 
 SYSTEM = (
     "You are a customer-support agent for a telecom company.\n"
@@ -58,7 +65,7 @@ def answer(query, max_turns=5):
 
         # 3. Agent loop.
         for _ in range(max_turns):
-            resp = client.responses.create(
+            resp = _get_client().responses.create(
                 model=CHAT_MODEL,
                 instructions=SYSTEM,
                 tools=TOOL_SCHEMAS,
