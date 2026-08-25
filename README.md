@@ -49,6 +49,18 @@ Try these to see grounding, refusal, and tool-calling in action:
 - `Is account +971500000003 active?` → calls `check_account_status`
 - `My roaming isn't working, please raise a ticket for +971500000002` → `create_ticket`
 
+## Web UI (demo)
+
+A minimal Streamlit chat UI sits on top of the same `answer()` engine used by
+`app.py` — same guardrails, retrieval, tools, and metrics.
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Each reply's expander shows the retrieved sources, tools used, guardrails
+fired, and measured latency.
+
 ## Project structure
 
 ```
