@@ -55,16 +55,15 @@ def _store_pgvector(chunks, sources, vectors):
     # Imported lazily so the numpy backend needs no database libraries installed.
     from src import db
 
-    conn = db.connect()
-    db.ensure_schema(conn)
-    with conn.cursor() as cur:
-        cur.execute("TRUNCATE kb_chunks RESTART IDENTITY;")  # rebuild cleanly
-        cur.executemany(
-            "INSERT INTO kb_chunks (source, content, embedding) VALUES (%s, %s, %s)",
-            [(s, c, v.tolist()) for s, c, v in zip(sources, chunks, vectors)],
-        )
-    conn.commit()
-    conn.close()
+    with db.connection() as conn:  # borrowed from the pool, returned on exit
+        db.ensure_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute("TRUNCATE kb_chunks RESTART IDENTITY;")  # rebuild cleanly
+            cur.executemany(
+                "INSERT INTO kb_chunks (source, content, embedding) VALUES (%s, %s, %s)",
+                [(s, c, v.tolist()) for s, c, v in zip(sources, chunks, vectors)],
+            )
+        conn.commit()
     print(f"Inserted {len(chunks)} rows into Postgres (kb_chunks), dim {vectors.shape[1]}")
 
 

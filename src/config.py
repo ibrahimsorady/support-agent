@@ -32,6 +32,10 @@ CHUNK_MAX_CHARS = int(os.getenv("CHUNK_MAX_CHARS", "800"))  # cap per chunk
 #   "pgvector" -> Postgres + the pgvector extension (needs a running DB).
 VECTOR_BACKEND = os.getenv("VECTOR_BACKEND", "numpy")
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/telco")
+# Connection pool sizing (pgvector backend). Keep min_size connections warm and
+# allow bursting up to max_size under load.
+DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "1"))
+DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "10"))
 # Embedding dimension. text-embedding-3-small = 1536. Must match the model and
 # the vector(...) column width in Postgres.
 EMBED_DIM = int(os.getenv("EMBED_DIM", "1536"))

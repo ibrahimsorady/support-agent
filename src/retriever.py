@@ -59,22 +59,21 @@ def _retrieve_pgvector(query, k):
     from src import db  # lazy import: only needed for this backend
 
     q = _embed_query(query)
-    conn = db.connect()
-    with conn.cursor() as cur:
-        # <=> is cosine DISTANCE (0 = identical). We ORDER BY it ascending to get
-        # nearest neighbours, and report 1 - distance as a similarity score so the
-        # numbers line up with the numpy path.
-        cur.execute(
-            """
-            SELECT source, content, 1 - (embedding <=> %s) AS score
-            FROM kb_chunks
-            ORDER BY embedding <=> %s
-            LIMIT %s
-            """,
-            (q, q, k),
-        )
-        rows = cur.fetchall()
-    conn.close()
+    with db.connection() as conn:  # borrowed from the pool, returned on exit
+        with conn.cursor() as cur:
+            # <=> is cosine DISTANCE (0 = identical). We ORDER BY it ascending to get
+            # nearest neighbours, and report 1 - distance as a similarity score so the
+            # numbers line up with the numpy path.
+            cur.execute(
+                """
+                SELECT source, content, 1 - (embedding <=> %s) AS score
+                FROM kb_chunks
+                ORDER BY embedding <=> %s
+                LIMIT %s
+                """,
+                (q, q, k),
+            )
+            rows = cur.fetchall()
     return [{"source": r[0], "text": r[1], "score": float(r[2])} for r in rows]
 
 
