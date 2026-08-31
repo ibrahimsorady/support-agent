@@ -84,7 +84,55 @@ def ensure_schema(conn):
             CREATE INDEX IF NOT EXISTS kb_chunks_embedding_idx
             ON kb_chunks USING hnsw (embedding vector_cosine_ops);
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS tickets (
+                id           BIGSERIAL PRIMARY KEY,
+                phone_number TEXT NOT NULL,
+                summary      TEXT NOT NULL,
+                status       TEXT NOT NULL DEFAULT 'open',
+                created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+        """)
     conn.commit()
+
+
+def insert_ticket(phone_number, summary):
+    """Insert a support ticket and return its generated id."""
+    with connection() as conn:
+        ensure_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO tickets (phone_number, summary) VALUES (%s, %s) RETURNING id;",
+                (phone_number, summary),
+            )
+            ticket_id = cur.fetchone()[0]
+        conn.commit()
+    return ticket_id
+
+
+def list_tickets():
+    """Return all tickets, most recently created first."""
+    with connection() as conn:
+        ensure_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, phone_number, summary, status, created_at "
+                "FROM tickets ORDER BY created_at DESC;"
+            )
+            rows = cur.fetchall()
+    return [
+        {"id": r[0], "phone_number": r[1], "summary": r[2], "status": r[3], "created_at": r[4]}
+        for r in rows
+    ]
+
+
+def set_ticket_status(ticket_id, status):
+    """Update a ticket's status (e.g. 'open' -> 'resolved')."""
+    with connection() as conn:
+        ensure_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute("UPDATE tickets SET status = %s WHERE id = %s;", (status, ticket_id))
+        conn.commit()
 
 
 if __name__ == "__main__":

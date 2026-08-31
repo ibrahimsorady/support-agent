@@ -8,6 +8,8 @@ parse reliably, rather than free-form prose.
 import json
 import random
 
+from src.config import VECTOR_BACKEND
+
 # --- Fake data ------------------------------------------------------------
 _ORDERS = {
     "ORD-1001": {"item": "iPhone 15 (128GB)", "status": "shipped",
@@ -40,7 +42,25 @@ def check_account_status(phone_number):
     return json.dumps({"found": True, "phone_number": phone_number.strip(), **acct})
 
 
+def list_orders():
+    """Return all mock orders as plain dicts, for display (not model-facing)."""
+    return [{"order_id": order_id, **order} for order_id, order in _ORDERS.items()]
+
+
+def list_accounts():
+    """Return all mock accounts as plain dicts, for display (not model-facing)."""
+    return [{"phone_number": phone, **acct} for phone, acct in _ACCOUNTS.items()]
+
+
 def create_ticket(phone_number, summary):
     ticket_id = f"TKT-{random.randint(10000, 99999)}"
+    # Persist when Postgres is configured; the numpy backend (and any DB hiccup)
+    # falls back to the in-memory ID below so the chat flow never breaks on this.
+    if VECTOR_BACKEND == "pgvector":
+        try:
+            from src import db
+            db.insert_ticket(phone_number.strip(), summary)
+        except Exception:
+            pass
     return json.dumps({"created": True, "ticket_id": ticket_id,
                        "phone_number": phone_number.strip(), "summary": summary})

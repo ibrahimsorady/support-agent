@@ -61,6 +61,12 @@ streamlit run streamlit_app.py
 Each reply's expander shows the retrieved sources, tools used, guardrails
 fired, and measured latency.
 
+A second **Backend** tab gives stakeholders a window into the mock backend:
+read-only order and account tables, plus a live tickets table (with a
+"Resolve" action) backed by Postgres. Tickets require `VECTOR_BACKEND=pgvector`
+with the DB running (see below) — the tab shows a friendly message instead of
+tickets otherwise, and chat keeps working on the default numpy backend either way.
+
 ## Project structure
 
 ```
