@@ -58,3 +58,6 @@ PRICE_EMBED_PER_1M = float(os.getenv("PRICE_EMBED_PER_1M", "0.02"))
 ROOT = Path(__file__).resolve().parent.parent
 KB_DIR = ROOT / "data" / "kb"
 INDEX_PATH = ROOT / "data" / "index.npz"
+
+# CRM
+CRM_API_URL = os.getenv("CRM_API_URL", "http://localhost:8100")

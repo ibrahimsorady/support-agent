@@ -11,3 +11,8 @@ pgvector>=0.5.0
 pytest>=8.0.0
 # Only needed for the web UI:
 streamlit>=1.40
+# Only needed for the CRM client:
+httpx>=0.28.0
+# Only needed for the FastAPI server:
+fastapi==0.141.1
+uvicorn==0.52.4

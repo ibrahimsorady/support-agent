@@ -10,7 +10,7 @@ Two halves:
 """
 import json
 
-from mock_backend import crm
+from src.clients import crm_client
 
 TOOL_SCHEMAS = [
     {
@@ -60,9 +60,9 @@ TOOL_SCHEMAS = [
 
 # Map tool names to the functions that implement them.
 _DISPATCH = {
-    "lookup_order": lambda a: crm.lookup_order(a.get("order_id", "")),
-    "check_account_status": lambda a: crm.check_account_status(a.get("phone_number", "")),
-    "create_ticket": lambda a: crm.create_ticket(a.get("phone_number", ""), a.get("summary", "")),
+    "lookup_order": lambda a: crm_client.lookup_order(a.get("order_id", "")),
+    "check_account_status": lambda a: crm_client.check_account_status(a.get("phone_number", "")),
+    "create_ticket": lambda a: crm_client.create_ticket(a.get("phone_number", ""), a.get("summary", "")),
 }
 
 
