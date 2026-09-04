@@ -10,7 +10,7 @@ Two halves:
 """
 import json
 
-from src.clients import crm_client
+from app.clients import crm_client
 
 TOOL_SCHEMAS = [
     {

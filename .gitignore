@@ -15,7 +15,7 @@ dist/
 .venv/
 venv/
 
-# Generated / runtime artifacts (rebuildable via `python -m src.ingest` / eval runs)
+# Generated / runtime artifacts (rebuildable via `python -m app.services.ingest` / eval runs)
 data/index.npz
 evals/last_run.jsonl
 

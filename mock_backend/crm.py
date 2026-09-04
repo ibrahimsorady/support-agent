@@ -8,7 +8,7 @@ parse reliably, rather than free-form prose.
 import json
 import random
 
-from src.config import VECTOR_BACKEND
+from app.config import VECTOR_BACKEND
 
 # --- Fake data ------------------------------------------------------------
 _ORDERS = {
@@ -58,8 +58,8 @@ def create_ticket(phone_number, summary):
     # falls back to the in-memory ID below so the chat flow never breaks on this.
     if VECTOR_BACKEND == "pgvector":
         try:
-            from src import db
-            db.insert_ticket(phone_number.strip(), summary)
+            from app.repositories import vector_store
+            vector_store.insert_ticket(phone_number.strip(), summary)
         except Exception:
             pass
     return json.dumps({"created": True, "ticket_id": ticket_id,

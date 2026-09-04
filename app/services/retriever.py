@@ -12,7 +12,7 @@ does by hand -- this is the production version of the same math.
 import numpy as np
 from openai import OpenAI
 
-from src.config import EMBED_MODEL, INDEX_PATH, TOP_K, VECTOR_BACKEND
+from app.config import EMBED_MODEL, INDEX_PATH, TOP_K, VECTOR_BACKEND
 
 _client: OpenAI | None = None
 _data = None  # lazy-loaded numpy index cache
@@ -27,7 +27,7 @@ def _get_client() -> OpenAI:
 
 def _embed_query(text):
     resp = _get_client().embeddings.create(model=EMBED_MODEL, input=[text])
-    from src import metrics  # lazy import to avoid a hard dependency cycle
+    from app.observability import metrics  # lazy import to avoid a hard dependency cycle
     metrics.record_embed_usage(EMBED_MODEL, getattr(resp, "usage", None))
     return np.array(resp.data[0].embedding, dtype=np.float32)
 
@@ -37,7 +37,7 @@ def _load_numpy():
     global _data
     if _data is None:
         if not INDEX_PATH.exists():
-            raise SystemExit(f"No index at {INDEX_PATH}. Run:  python -m src.ingest")
+            raise SystemExit(f"No index at {INDEX_PATH}. Run:  python -m app.services.ingest")
         npz = np.load(INDEX_PATH, allow_pickle=True)
         _data = {
             "vectors": npz["vectors"].astype(np.float32),
@@ -62,10 +62,10 @@ def _retrieve_numpy(query, k):
 
 # --- pgvector backend -----------------------------------------------------
 def _retrieve_pgvector(query, k):
-    from src import db  # lazy import: only needed for this backend
+    from app.repositories import vector_store  # lazy import: only needed for this backend
 
     q = _embed_query(query)
-    with db.connection() as conn:  # borrowed from the pool, returned on exit
+    with vector_store.connection() as conn:  # borrowed from the pool, returned on exit
         with conn.cursor() as cur:
             # <=> is cosine DISTANCE (0 = identical). We ORDER BY it ascending to get
             # nearest neighbours, and report 1 - distance as a similarity score so the

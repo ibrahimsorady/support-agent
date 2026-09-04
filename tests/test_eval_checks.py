@@ -1,5 +1,5 @@
 """Offline tests for the eval harness's grading logic (no API calls)."""
-from evals.run_evals import check_contains, check_not_contains, check_tools
+from app.services.eval_runner import check_contains, check_not_contains, check_tools
 
 
 def test_check_tools_exact_match():

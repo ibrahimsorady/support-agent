@@ -8,7 +8,7 @@ every retrieval. Callers borrow with:
     with db.connection() as conn:
         ...   # connection is automatically returned to the pool on exit
 
-Smoke-test your database with:  python -m src.db
+Smoke-test your database with:  python -m app.repositories.vector_store
 """
 import atexit
 import threading
@@ -16,7 +16,7 @@ import threading
 from psycopg_pool import ConnectionPool
 from pgvector.psycopg import register_vector
 
-from src.config import DATABASE_URL, DB_POOL_MAX, DB_POOL_MIN, EMBED_DIM
+from app.config import DATABASE_URL, DB_POOL_MAX, DB_POOL_MIN, EMBED_DIM
 
 _pool = None  # created lazily so importing this module never opens a connection
 _pool_lock = threading.Lock()

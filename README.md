@@ -26,18 +26,21 @@ pip install -r requirements.txt
 cp .env.example .env        # then edit .env and paste your key
 
 # 3. Build the vector index from the knowledge base (one-time; re-run if KB changes)
-python -m src.ingest
+python -m app.services.ingest
 
-# 4. Chat with the agent
+# 4. Chat with the agent on the command line
 python app.py
 
-# 5. Grade the agent against the golden dataset
-python -m evals.run_evals            # failures only
-python -m evals.run_evals --verbose  # every check
-python -m evals.run_evals --trace    # full per-case trace (incl. judge internals)
-python -m evals.run_evals --only order_not_found --trace   # trace one case
+# 5. ...or serve the same agent over HTTP (docs at http://localhost:8000/docs)
+uvicorn app.main:app --reload --port 8000
 
-# 6. Run the offline unit tests (guardrails + eval-check logic, no API key needed)
+# 6. Grade the agent against the golden dataset
+python -m app.services.eval_runner            # failures only
+python -m app.services.eval_runner --verbose  # every check
+python -m app.services.eval_runner --trace    # full per-case trace (incl. judge internals)
+python -m app.services.eval_runner --only order_not_found --trace   # trace one case
+
+# 7. Run the offline unit tests (guardrails + eval-check logic, no API key needed)
 python -m pytest tests/
 ```
 
@@ -61,21 +64,33 @@ telco-support-agent/
 ├── mock_backend/
 │   └── crm.py              # fake orders/accounts (stands in for Salesforce etc.)
 ├── evals/
-│   ├── cases.yaml          # golden dataset — the graded test cases
-│   └── run_evals.py        # runner: feeds cases to the agent, scores results
+│   └── cases.yaml          # golden dataset — the graded test cases
 ├── observability/          # Prometheus scrape config + Grafana dashboards
 ├── scripts/
 │   └── simulate_traffic.py # generate sample traffic to populate dashboards
 ├── tests/                  # offline unit tests (guardrails, eval-check logic)
-└── src/
-    ├── config.py      # models, retrieval, vector-backend, metrics settings
-    ├── db.py          # Postgres/pgvector connection + schema (pgvector only)
-    ├── guardrails.py  # input/output safety layer (block / redact / escalate)
-    ├── metrics.py     # Prometheus metrics (latency, tokens, cost, outcomes)
-    ├── ingest.py      # chunk + embed KB -> numpy file OR Postgres
-    ├── retriever.py   # retrieval dispatch: numpy cosine OR pgvector <=>
-    ├── tools.py       # tool schemas (the "menu") + dispatcher
-    └── agent.py       # RAG + tools + guardrails + metrics (Responses API)
+└── app/
+    ├── main.py             # FastAPI app: middleware + router wiring
+    ├── config.py           # models, retrieval, vector-backend, metrics settings
+    ├── routers/
+    │   ├── health.py       # GET /health, /info, /metrics
+    │   └── chat.py         # POST /chat, /chat/stream (SSE)
+    ├── models/
+    │   └── schemas.py      # Pydantic request/response models
+    ├── services/
+    │   ├── agent.py        # RAG + tools + guardrails + metrics (Responses API)
+    │   ├── retriever.py    # retrieval dispatch: numpy cosine OR pgvector <=>
+    │   ├── guardrails.py   # input/output safety layer (block / redact / escalate)
+    │   ├── ingest.py       # chunk + embed KB -> numpy file OR Postgres
+    │   └── eval_runner.py  # feeds evals/cases.yaml to the agent, scores results
+    ├── tools/
+    │   └── tools.py        # tool schemas (the "menu") + dispatcher
+    ├── clients/
+    │   └── crm_client.py   # HTTP client for the CRM service (timeouts + retries)
+    ├── repositories/
+    │   └── vector_store.py # Postgres/pgvector connection + schema (pgvector only)
+    └── observability/
+        └── metrics.py      # Prometheus metrics (latency, tokens, cost, outcomes)
 ```
 
 ## Design notes
@@ -99,14 +114,14 @@ VECTOR_BACKEND=pgvector
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/telco
 
 # 3. Smoke-test the DB (creates the extension, table, and index)
-python -m src.db          # -> "Connected OK. pgvector version: ..., kb_chunks rows: 0"
+python -m app.repositories.vector_store   # -> "Connected OK. pgvector version: ..., kb_chunks rows: 0"
 
 # 4. Re-ingest (now writes rows into Postgres instead of a file)
-python -m src.ingest
+python -m app.services.ingest
 
 # 5. Everything else runs identically
 python app.py
-python -m evals.run_evals
+python -m app.services.eval_runner
 ```
 
 Flip `VECTOR_BACKEND` back to `numpy` anytime — both backends coexist.
@@ -131,7 +146,7 @@ Dashboard panels: deflection rate, cumulative estimated cost, latency p50/p95,
 requests by outcome, and tokens by kind. Set your real token prices in `.env`
 (`PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`) for an accurate cost figure.
 Default model is `gpt-5-mini` (fast, cheap, good for well-scoped support tasks),
-configurable in `src/config.py`.
+configurable in `app/config.py`.
 
 ## Roadmap
 

@@ -3,9 +3,9 @@
 Starts a Prometheus /metrics endpoint on startup, then runs the chat loop.
 Run from the repo root:  python app.py
 """
-from src.agent import answer
-from src.config import METRICS_PORT
-from src.metrics import start_metrics_server
+from app.config import METRICS_PORT
+from app.observability.metrics import start_metrics_server
+from app.services.agent import answer
 
 
 def main():

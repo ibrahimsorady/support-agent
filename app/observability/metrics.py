@@ -18,7 +18,7 @@ from contextlib import contextmanager
 
 from prometheus_client import Counter, Histogram, start_http_server
 
-from src.config import (METRICS_PORT, PRICE_EMBED_PER_1M, PRICE_INPUT_PER_1M,
+from app.config import (METRICS_PORT, PRICE_EMBED_PER_1M, PRICE_INPUT_PER_1M,
                         PRICE_OUTPUT_PER_1M)
 
 REQUESTS = Counter("agent_requests_total", "Agent requests by outcome", ["outcome"])

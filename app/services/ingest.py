@@ -6,12 +6,12 @@ and stores them in the configured vector backend:
     VECTOR_BACKEND=pgvector  -> inserts rows into Postgres
 
 The chunking + embedding is identical either way -- only the storage target
-changes. Run it with:  python -m src.ingest
+changes. Run it with:  python -m app.services.ingest
 """
 import numpy as np
 from openai import OpenAI
 
-from src.config import CHUNK_MAX_CHARS, EMBED_MODEL, INDEX_PATH, KB_DIR, VECTOR_BACKEND
+from app.config import CHUNK_MAX_CHARS, EMBED_MODEL, INDEX_PATH, KB_DIR, VECTOR_BACKEND
 
 _client: OpenAI | None = None
 
@@ -76,10 +76,10 @@ def _store_numpy(chunks, sources, vectors):
 
 def _store_pgvector(chunks, sources, vectors):
     # Imported lazily so the numpy backend needs no database libraries installed.
-    from src import db
+    from app.repositories import vector_store
 
-    with db.connection() as conn:  # borrowed from the pool, returned on exit
-        db.ensure_schema(conn)
+    with vector_store.connection() as conn:  # borrowed from the pool, returned on exit
+        vector_store.ensure_schema(conn)
         with conn.cursor() as cur:
             cur.execute("TRUNCATE kb_chunks RESTART IDENTITY;")  # rebuild cleanly
             cur.executemany(

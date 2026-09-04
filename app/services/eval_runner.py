@@ -1,10 +1,10 @@
 """Eval harness: grade the agent against the golden dataset.
 
 Run from the repo root:
-    python -m evals.run_evals                     # failures only
-    python -m evals.run_evals --verbose           # every check, all cases
-    python -m evals.run_evals --trace             # full per-case trace
-    python -m evals.run_evals --only order_not_found --trace   # trace one case
+    python -m app.services.eval_runner                     # failures only
+    python -m app.services.eval_runner --verbose           # every check, all cases
+    python -m app.services.eval_runner --trace             # full per-case trace
+    python -m app.services.eval_runner --only order_not_found --trace   # trace one case
 
 Every run also writes evals/last_run.jsonl — a full record of each case (input,
 reply, tools, sources, and every check incl. the judge's exact prompt + raw
@@ -19,16 +19,15 @@ A case passes only if EVERY check defined on it passes.
 """
 import argparse
 import json
-from pathlib import Path
 
 import yaml
 from openai import OpenAI
 
-from src.agent import answer
-from src.config import JUDGE_MODEL
+from app.config import JUDGE_MODEL, ROOT
+from app.services.agent import answer
 
 _client: OpenAI | None = None
-EVALS_DIR = Path(__file__).resolve().parent
+EVALS_DIR = ROOT / "evals"
 CASES_PATH = EVALS_DIR / "cases.yaml"
 RESULTS_PATH = EVALS_DIR / "last_run.jsonl"
 

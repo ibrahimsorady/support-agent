@@ -20,7 +20,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Byte-compile all sources (catches syntax errors)
-        run: python -m compileall -q app.py src mock_backend evals scripts tests
+        run: python -m compileall -q app.py app mock_backend scripts tests
 
       - name: Run offline unit tests (no API key needed)
         run: python -m pytest tests/ -v

@@ -16,7 +16,7 @@ import re
 
 from openai import OpenAI
 
-from src.config import ENABLE_GROUNDING_GUARD, JUDGE_MODEL
+from app.config import ENABLE_GROUNDING_GUARD, JUDGE_MODEL
 
 _client: OpenAI | None = None
 

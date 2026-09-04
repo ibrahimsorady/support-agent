@@ -3,7 +3,7 @@
 These don't call the OpenAI API -- check_input and _redact_cards are pure
 functions, so they're free and fast to run in CI on every push.
 """
-from src.guardrails import _redact_cards, check_input
+from app.services.guardrails import _redact_cards, check_input
 
 
 def test_allows_ordinary_question():

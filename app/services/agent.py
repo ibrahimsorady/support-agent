@@ -8,17 +8,17 @@ Flow per request:
 
 Every request is timed, its token usage recorded, and its outcome classified
 (deflected / escalated / blocked) so Prometheus + Grafana can show latency,
-cost, and deflection rate. See src/metrics.py.
+cost, and deflection rate. See app/observability/metrics.py.
 """
 import time
 
 from openai import OpenAI
 
-from src import metrics
-from src.config import CHAT_MODEL
-from src.guardrails import check_input, check_output
-from src.retriever import retrieve
-from src.tools import TOOL_SCHEMAS, run_tool
+from app.config import CHAT_MODEL
+from app.observability import metrics
+from app.services.guardrails import check_input, check_output
+from app.services.retriever import retrieve
+from app.tools.tools import TOOL_SCHEMAS, run_tool
 
 _client: OpenAI | None = None
 

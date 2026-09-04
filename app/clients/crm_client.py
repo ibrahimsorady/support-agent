@@ -4,7 +4,7 @@ import time
 
 import httpx
 
-from src.config import CRM_API_URL
+from app.config import CRM_API_URL
 
 _client = httpx.Client(base_url=CRM_API_URL, timeout=httpx.Timeout(5.0, connect=2.0))
 
