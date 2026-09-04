@@ -1,13 +1,15 @@
 """FastAPI HTTP layer for the agent service."""
+import json
 import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 
-from src.agent import answer
+from src.agent import answer, answer_stream
 from src.config import VECTOR_BACKEND
 
 
@@ -55,6 +57,15 @@ def chat(req: ChatRequest):
         guardrails=meta.get("guardrails", []),
         latency_ms=int((time.perf_counter() - t0) * 1000),
     )
+
+
+@app.post("/chat/stream")
+def chat_stream(req: ChatRequest):
+    def sse():
+        for event in answer_stream(req.message):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(sse(), media_type="text/event-stream")
 
 
 @app.get("/metrics")

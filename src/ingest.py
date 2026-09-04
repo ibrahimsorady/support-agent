@@ -24,19 +24,35 @@ def _get_client() -> OpenAI:
 
 
 def load_chunks():
-    """Split each KB doc into paragraph-ish chunks, tracking its source file."""
+    """Split each KB doc into paragraph-ish chunks, tracking its source file.
+
+    A markdown heading on its own ("## Pay-as-you-go roaming rates") carries
+    no retrievable content by itself, so it's glued to the paragraph that
+    follows rather than becoming its own chunk -- otherwise it can win a
+    top-K retrieval slot and crowd out the paragraph with the actual answer.
+    """
     chunks, sources = [], []
     for path in sorted(KB_DIR.glob("*.md")):
         text = path.read_text(encoding="utf-8")
+        pending_heading = None
         for para in text.split("\n\n"):
             para = para.strip()
             if not para:
                 continue
+            if para.startswith("#"):
+                pending_heading = para if pending_heading is None else f"{pending_heading}\n{para}"
+                continue
+            if pending_heading is not None:
+                para = f"{pending_heading}\n{para}"
+                pending_heading = None
             while len(para) > CHUNK_MAX_CHARS:
                 chunks.append(para[:CHUNK_MAX_CHARS])
                 sources.append(path.stem)
                 para = para[CHUNK_MAX_CHARS:]
             chunks.append(para)
+            sources.append(path.stem)
+        if pending_heading is not None:  # trailing heading with no body
+            chunks.append(pending_heading)
             sources.append(path.stem)
     return chunks, sources
 
