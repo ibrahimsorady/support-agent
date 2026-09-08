@@ -11,11 +11,13 @@ Every request is timed, its token usage recorded, and its outcome classified
 cost, and deflection rate. See app/observability/metrics.py.
 """
 import time
+import uuid
 
 from openai import OpenAI
 
-from app.config import CHAT_MODEL
+from app.config import CHAT_MODEL, HISTORY_TURNS
 from app.observability import metrics
+from app.repositories import conversations
 from app.services.guardrails import check_input, check_output
 from app.services.retriever import retrieve
 from app.tools.tools import TOOL_SCHEMAS, run_tool
@@ -43,23 +45,72 @@ SYSTEM = (
 )
 
 
-def answer(query, max_turns=5):
-    """Return (reply_text, meta) where meta = {sources, tools_used, guardrails}."""
+def _resolve_conversation(user_id, conversation_id):
+    """Return (conversation_id, history) for this turn.
+
+    The backend owns conversation_id -- a client-supplied one is only reused
+    once conversation_belongs_to() confirms it already carries a message from
+    this user_id; otherwise a fresh one is minted. Without a user_id (internal
+    callers: evals, scripts) memory is skipped entirely: an ephemeral id is
+    used and history is always empty.
+    """
+    if not user_id:
+        return conversation_id or str(uuid.uuid4()), []
+
+    if conversation_id and conversations.conversation_belongs_to(conversation_id, user_id):
+        conv_id = conversation_id
+    else:
+        conv_id = conversations.create_conversation(user_id)
+
+    history = conversations.recent_messages(conv_id, HISTORY_TURNS)
+    return conv_id, history
+
+
+def _history_input(history):
+    """Prior turns as Responses-API input items ('agent' -> 'assistant')."""
+    return [
+        {"role": "assistant" if h["role"] == "agent" else "user", "content": h["content"]}
+        for h in history
+    ]
+
+
+def _persist_turn(user_id, conversation_id, query, reply):
+    if not user_id:
+        return
+    conversations.add_message(conversation_id, user_id, "user", query)
+    conversations.add_message(conversation_id, user_id, "agent", reply)
+
+
+def answer(query, max_turns=5, token=None, user_id=None, conversation_id=None):
+    """Return (reply_text, meta) where meta = {conversation_id, sources, tools_used, guardrails}.
+
+    token, if given, is the caller's bearer JWT -- forwarded to the CRM on
+    every tool call so the CRM enforces its own permissions.
+
+    user_id/conversation_id, if given, load and persist conversation history
+    (see _resolve_conversation). Without a user_id, memory is skipped and an
+    ephemeral conversation_id is used.
+    """
     with metrics.track_latency():
         guardrails = []
+        conversation_id, history = _resolve_conversation(user_id, conversation_id)
 
         # 1. INPUT guardrail -- runs before any retrieval or model call.
         allowed, reason, safe_msg = check_input(query)
         if not allowed:
             guardrails.append(f"input:{reason}")
             metrics.record_request("blocked")
-            return safe_msg, {"sources": [], "tools_used": [], "guardrails": guardrails}
+            return safe_msg, {
+                "conversation_id": conversation_id,
+                "sources": [], "tools_used": [], "guardrails": guardrails,
+            }
 
-        # 2. RAG retrieval.
+        # 2. RAG retrieval -- runs fresh on the new question only; history is
+        # never re-retrieved against.
         hits = retrieve(query)
         context = "\n\n".join(f"[{h['source']}] {h['text']}" for h in hits)
 
-        input_list = [
+        input_list = _history_input(history) + [
             {"role": "user",
              "content": f"Context snippets:\n{context}\n\nCustomer question: {query}"}
         ]
@@ -83,7 +134,9 @@ def answer(query, max_turns=5):
                 # Deflected unless the output guardrail forced an escalation.
                 outcome = "escalated" if "output:ungrounded" in fired else "deflected"
                 metrics.record_request(outcome)
+                _persist_turn(user_id, conversation_id, query, reply)
                 return reply, {
+                    "conversation_id": conversation_id,
                     "sources": [h["source"] for h in hits],
                     "tools_used": tools_used,
                     "guardrails": guardrails,
@@ -92,7 +145,7 @@ def answer(query, max_turns=5):
             input_list += resp.output
             for call in calls:
                 tools_used.append(call.name)
-                result = run_tool(call.name, call.arguments)
+                result = run_tool(call.name, call.arguments, token)
                 tool_outputs.append(result)
                 input_list.append({
                     "type": "function_call_output",
@@ -102,15 +155,27 @@ def answer(query, max_turns=5):
 
         # Safety valve: too many tool round-trips without a final answer.
         metrics.record_request("escalated")
+        fallback = "I'm having trouble completing that right now - let me escalate you to a human agent."
+        _persist_turn(user_id, conversation_id, query, fallback)
         return (
-            "I'm having trouble completing that right now - let me escalate you to a human agent.",
-            {"sources": [h["source"] for h in hits], "tools_used": tools_used, "guardrails": guardrails},
+            fallback,
+            {
+                "conversation_id": conversation_id,
+                "sources": [h["source"] for h in hits],
+                "tools_used": tools_used,
+                "guardrails": guardrails,
+            },
         )
 
 
-def answer_stream(query, max_turns=5):
+def answer_stream(query, max_turns=5, token=None, user_id=None, conversation_id=None):
     """Streaming twin of answer(): same flow and outcome, but yields events as
     they happen instead of returning once at the end.
+
+    token, if given, is the caller's bearer JWT -- forwarded to the CRM on
+    every tool call so the CRM enforces its own permissions.
+
+    user_id/conversation_id: see answer().
 
     Yields dicts of one of three shapes:
       {"type": "status", "text": ...}          - a tool-calling turn is running
@@ -123,6 +188,7 @@ def answer_stream(query, max_turns=5):
     t0 = time.perf_counter()
     with metrics.track_latency():
         guardrails = []
+        conversation_id, history = _resolve_conversation(user_id, conversation_id)
 
         # 1. INPUT guardrail -- identical to answer().
         allowed, reason, safe_msg = check_input(query)
@@ -131,17 +197,19 @@ def answer_stream(query, max_turns=5):
             metrics.record_request("blocked")
             yield {"type": "token", "text": safe_msg}
             yield {"type": "done", "meta": {
+                "conversation_id": conversation_id,
                 "sources": [], "tools_used": [], "guardrails": guardrails,
                 "reply": safe_msg,
                 "latency_ms": int((time.perf_counter() - t0) * 1000),
             }}
             return
 
-        # 2. RAG retrieval.
+        # 2. RAG retrieval -- runs fresh on the new question only; history is
+        # never re-retrieved against.
         hits = retrieve(query)
         context = "\n\n".join(f"[{h['source']}] {h['text']}" for h in hits)
 
-        input_list = [
+        input_list = _history_input(history) + [
             {"role": "user",
              "content": f"Context snippets:\n{context}\n\nCustomer question: {query}"}
         ]
@@ -183,7 +251,9 @@ def answer_stream(query, max_turns=5):
                 guardrails += fired
                 outcome = "escalated" if "output:ungrounded" in fired else "deflected"
                 metrics.record_request(outcome)
+                _persist_turn(user_id, conversation_id, query, reply)
                 yield {"type": "done", "meta": {
+                    "conversation_id": conversation_id,
                     "sources": [h["source"] for h in hits],
                     "tools_used": tools_used,
                     "guardrails": guardrails,
@@ -195,7 +265,7 @@ def answer_stream(query, max_turns=5):
             input_list += resp.output
             for call in calls:
                 tools_used.append(call.name)
-                result = run_tool(call.name, call.arguments)
+                result = run_tool(call.name, call.arguments, token)
                 tool_outputs.append(result)
                 input_list.append({
                     "type": "function_call_output",
@@ -206,8 +276,10 @@ def answer_stream(query, max_turns=5):
         # Safety valve: too many tool round-trips without a final answer.
         fallback = "I'm having trouble completing that right now - let me escalate you to a human agent."
         metrics.record_request("escalated")
+        _persist_turn(user_id, conversation_id, query, fallback)
         yield {"type": "token", "text": fallback}
         yield {"type": "done", "meta": {
+            "conversation_id": conversation_id,
             "sources": [h["source"] for h in hits],
             "tools_used": tools_used,
             "guardrails": guardrails,

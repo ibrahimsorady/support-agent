@@ -2,11 +2,11 @@
 
 Bills are issued on the 1st of each month and cover the previous calendar month. Payment is due within 14 days. A late-payment fee of 10 AED applies after the due date.
 
-You can view and download past bills for the last 12 months in the app under "Billing" > "Statements".
+You can view and download past bills for the last 12 months in the Meridian app under "Billing" > "Statements".
 
 ## Payment methods
 
-We accept credit/debit cards, direct debit, and payment at any retail store. Auto-pay can be enabled under "Billing" > "Auto-Pay" and charges your saved card on the due date.
+We accept credit/debit cards, direct debit, and payment at any Meridian retail store. Auto-pay can be enabled under "Billing" > "Auto-Pay" and charges your saved card on the due date.
 
 ## Refunds
 

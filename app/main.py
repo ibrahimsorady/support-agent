@@ -6,7 +6,7 @@ Run it with:  uvicorn app.main:app --reload --port 8000
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import chat, health
+from app.routers import chat, health, kb
 
 app = FastAPI(title="Agent Service")
 
@@ -19,3 +19,4 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(chat.router)
+app.include_router(kb.router)

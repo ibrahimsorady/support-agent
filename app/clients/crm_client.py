@@ -12,24 +12,33 @@ _RETRIES = 2          # total attempts = 1 + _RETRIES
 _BACKOFF = 0.3        # seconds, grows each retry
 
 
-def _get(path: str) -> str:
-    return _request("GET", path)
+def _auth_headers(token: str | None) -> dict | None:
+    return {"Authorization": f"Bearer {token}"} if token else None
 
 
-def _post(path: str, payload: dict) -> str:
-    return _request("POST", path, payload)
+def _get(path: str, token: str | None = None) -> str:
+    return _request("GET", path, token=token)
 
 
-def _request(method: str, path: str, payload: dict | None = None) -> str:
+def _post(path: str, payload: dict, token: str | None = None) -> str:
+    return _request("POST", path, payload, token=token)
+
+
+def _request(method: str, path: str, payload: dict | None = None, token: str | None = None) -> str:
     """Call the CRM. On failure, return an error STRING (never raise) so the
-    agent can respond gracefully instead of the turn crashing."""
+    agent can respond gracefully instead of the turn crashing.
+
+    token, if given, is forwarded as a Bearer credential so the CRM enforces
+    its own permissions for the caller.
+    """
+    headers = _auth_headers(token)
     last_err = None
     for attempt in range(_RETRIES + 1):
         try:
             if method == "GET":
-                r = _client.get(path)
+                r = _client.get(path, headers=headers)
             else:
-                r = _client.post(path, json=payload)
+                r = _client.post(path, json=payload, headers=headers)
             r.raise_for_status()
             return r.text
         except httpx.HTTPStatusError as e:
@@ -44,13 +53,13 @@ def _request(method: str, path: str, payload: dict | None = None) -> str:
     return json.dumps({"error": "CRM service unavailable, please try again later"})
 
 
-def lookup_order(order_id: str) -> str:
-    return _get(f"/orders/{order_id}")
+def lookup_order(order_id: str, token: str | None = None) -> str:
+    return _get(f"/orders/{order_id}", token)
 
 
-def check_account_status(phone_number: str) -> str:
-    return _get(f"/customers/{phone_number}")
+def check_account_status(phone_number: str, token: str | None = None) -> str:
+    return _get(f"/customers/{phone_number}", token)
 
 
-def create_ticket(phone_number: str, summary: str) -> str:
-    return _post("/tickets", {"phone_number": phone_number, "summary": summary})
+def create_ticket(phone_number: str, summary: str, token: str | None = None) -> str:
+    return _post("/tickets", {"phone_number": phone_number, "summary": summary}, token)

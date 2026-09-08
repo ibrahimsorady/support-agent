@@ -58,16 +58,20 @@ TOOL_SCHEMAS = [
     },
 ]
 
-# Map tool names to the functions that implement them.
+# Map tool names to the functions that implement them. Each takes the parsed
+# arguments plus the caller's bearer token (may be None), forwarded to the CRM.
 _DISPATCH = {
-    "lookup_order": lambda a: crm_client.lookup_order(a.get("order_id", "")),
-    "check_account_status": lambda a: crm_client.check_account_status(a.get("phone_number", "")),
-    "create_ticket": lambda a: crm_client.create_ticket(a.get("phone_number", ""), a.get("summary", "")),
+    "lookup_order": lambda a, token: crm_client.lookup_order(a.get("order_id", ""), token),
+    "check_account_status": lambda a, token: crm_client.check_account_status(a.get("phone_number", ""), token),
+    "create_ticket": lambda a, token: crm_client.create_ticket(a.get("phone_number", ""), a.get("summary", ""), token),
 }
 
 
-def run_tool(name, arguments_json):
+def run_tool(name, arguments_json, token=None):
     """Execute a tool and return a string result.
+
+    token is the caller's bearer JWT, forwarded to the CRM so it can enforce
+    its own permissions; it's None for internal callers (evals, scripts).
 
     Errors are returned as DATA (not raised) so the model can read them and
     react — e.g. ask the customer for a valid order ID — instead of the whole
@@ -81,4 +85,4 @@ def run_tool(name, arguments_json):
     fn = _DISPATCH.get(name)
     if fn is None:
         return json.dumps({"error": f"unknown tool '{name}'"})
-    return fn(args)
+    return fn(args, token)

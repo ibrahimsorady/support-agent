@@ -47,6 +47,13 @@ def _load_numpy():
     return _data
 
 
+def invalidate_cache():
+    """Drop the cached numpy index so the next retrieve() reloads it from
+    disk. Called after the KB router mutates data/index.npz."""
+    global _data
+    _data = None
+
+
 def _retrieve_numpy(query, k):
     data = _load_numpy()
     vectors = data["vectors"]

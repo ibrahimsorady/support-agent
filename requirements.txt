@@ -14,3 +14,6 @@ httpx>=0.28.0
 # Only needed for the FastAPI server:
 fastapi==0.141.1
 uvicorn==0.52.4
+python-multipart>=0.0.32
+# Only needed for JWT verification (CRM auth):
+python-jose[cryptography]>=3.3.0

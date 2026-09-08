@@ -71,11 +71,18 @@ def ensure_schema(conn):
     with conn.cursor() as cur:
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS kb_chunks (
-                id        BIGSERIAL PRIMARY KEY,
-                source    TEXT NOT NULL,
-                content   TEXT NOT NULL,
-                embedding vector({EMBED_DIM}) NOT NULL
+                id         BIGSERIAL PRIMARY KEY,
+                source     TEXT NOT NULL,
+                content    TEXT NOT NULL,
+                embedding  vector({EMBED_DIM}) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
             );
+        """)
+        # Added after the table already existed in some deployments -- IF NOT
+        # EXISTS makes this a no-op there and a real migration everywhere else.
+        cur.execute("""
+            ALTER TABLE kb_chunks ADD COLUMN IF NOT EXISTS created_at
+            TIMESTAMPTZ NOT NULL DEFAULT now();
         """)
         # HNSW index for cosine distance. Overkill for a tiny KB, but this is the
         # line that keeps search fast at millions of rows -- the reason to use a
@@ -92,6 +99,23 @@ def ensure_schema(conn):
                 status       TEXT NOT NULL DEFAULT 'open',
                 created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
             );
+        """)
+        # Conversation memory. A "conversation" has no table of its own -- it's
+        # just a UUID that groups rows here, minted and owned by the backend
+        # (see app.repositories.conversations).
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id              BIGSERIAL PRIMARY KEY,
+                conversation_id UUID NOT NULL,
+                user_id         TEXT NOT NULL,
+                role            TEXT NOT NULL,
+                content         TEXT NOT NULL,
+                created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS messages_conversation_created_idx
+            ON messages (conversation_id, created_at);
         """)
     conn.commit()
 

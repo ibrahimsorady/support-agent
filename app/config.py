@@ -40,6 +40,11 @@ DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "10"))
 # the vector(...) column width in Postgres.
 EMBED_DIM = int(os.getenv("EMBED_DIM", "1536"))
 
+# --- Conversation memory ---------------------------------------------------
+# Total messages (user + agent turns combined) fed back into the model as
+# history on each request. Bounded so context doesn't grow unbounded.
+HISTORY_TURNS = int(os.getenv("HISTORY_TURNS", "6"))
+
 # --- Guardrails -----------------------------------------------------------
 # The model-based output grounding guard costs one extra API call per reply, so
 # it's off by default. Set ENABLE_GROUNDING_GUARD=true to turn it on.
@@ -61,3 +66,10 @@ INDEX_PATH = ROOT / "data" / "index.npz"
 
 # CRM
 CRM_API_URL = os.getenv("CRM_API_URL", "http://localhost:8100")
+
+# --- Auth -------------------------------------------------------------
+# Shared secret used to verify the JWTs the CRM issues. Must match the CRM's
+# own JWT_SECRET exactly. No insecure default -- if it's unset, token
+# verification simply fails (fail closed) rather than trusting a guessable key.
+JWT_SECRET = os.getenv("JWT_SECRET", "")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
